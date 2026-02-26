@@ -6,6 +6,10 @@ import { EconomicEvent, countryCoordinates } from "./types/economic-event";
 import countryData from "./data/country.json";
 import NewsList from "./components/news-list";
 import FilterPanel from "./components/filter-panel";
+import LoadingSpinner from "./components/loading-spinner";
+import EventChartModal from "./components/event-chart-modal";
+import IndicesView from "./components/indices-view";
+import NewsView from "./components/news-view";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -44,12 +48,22 @@ export default function Home() {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [viewMode, setViewMode] = useState<'map' | 'list' | 'indices' | 'news'>('map');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCountries, setSelectedCountries] = useState<string[]>(
     countryData.map(c => c.country_id.toString())
   );
   const [selectedImportance, setSelectedImportance] = useState<string[]>(['low', 'medium', 'high']);
+  const [selectedChartEvent, setSelectedChartEvent] = useState<{ id: string; name: string } | null>(null);
+
+  // Extract event ID from page_link (e.g., "/indices/us-30" -> extract ID from another source)
+  // For now, we'll need to handle this differently since page_link doesn't contain numeric ID
+  const extractEventId = (pageLink: string): string | null => {
+    // This is a placeholder - you may need to map page_link to actual IDs
+    // or get the ID from another field in the event data
+    const match = pageLink.match(/\/(\d+)/);
+    return match ? match[1] : null;
+  };
 
   useEffect(() => {
     // Chỉ fetch khi có ít nhất 1 country và 1 importance được chọn
@@ -163,7 +177,7 @@ export default function Home() {
               : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
           }`}
         >
-           Maps
+           Map
         </button>
         <button
           onClick={() => setViewMode('list')}
@@ -174,6 +188,26 @@ export default function Home() {
           }`}
         >
            List
+        </button>
+        <button
+          onClick={() => setViewMode('indices')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'indices'
+              ? 'bg-blue-500 text-white'
+              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+          }`}
+        >
+           Indices
+        </button>
+        <button
+          onClick={() => setViewMode('news')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'news'
+              ? 'bg-blue-500 text-white'
+              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+          }`}
+        >
+           News
         </button>
       </div>
 
@@ -201,12 +235,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Loading */}
-      {loading && (
-        <div className="absolute top-20 left-4 z-10 bg-white dark:bg-zinc-800 px-4 py-2 rounded-lg shadow-lg text-black dark:text-white">
-          Loading data...
-        </div>
-      )}
+      {/* Loading Spinner */}
+      {loading && <LoadingSpinner />}
 
       {/* Country Tooltip - Only in map mode */}
       {viewMode === 'map' && tooltip && !selectedEvents && (
@@ -246,10 +276,26 @@ export default function Home() {
                   <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     {event.currency}
                   </span>
+                  <button
+                    onClick={() => {
+                      const eventId = extractEventId(event.page_link);
+                      if (eventId) {
+                        setSelectedChartEvent({ id: eventId, name: event.event_translated || event.short_name });
+                      }
+                    }}
+                    className="ml-auto text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    📊 Chart
+                  </button>
                 </div>
-                <h3 className="font-bold text-black dark:text-white mb-2 text-sm">
+                <a
+                  href={`https://www.investing.com${event.page_link}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-black dark:text-white mb-2 text-sm hover:text-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer block"
+                >
                   {event.event_translated || event.short_name}
-                </h3>
+                </a>
                 <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-2">
                   {event.description}
                 </p>
@@ -260,6 +306,15 @@ export default function Home() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Chart Modal */}
+      {selectedChartEvent && (
+        <EventChartModal
+          eventId={selectedChartEvent.id}
+          eventName={selectedChartEvent.name}
+          onClose={() => setSelectedChartEvent(null)}
+        />
       )}
 
       {/* Content Area */}
@@ -275,6 +330,26 @@ export default function Home() {
             height={600}
             style={{ width: "100%", height: "100%" }}
           >
+            <defs>
+              {/* Glow filter for high importance */}
+              <filter id="glow-high" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              
+              {/* Glow filter for medium importance */}
+              <filter id="glow-medium" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            
             <ZoomableGroup
               zoom={position.zoom}
               center={position.coordinates as [number, number]}
@@ -320,23 +395,54 @@ export default function Home() {
                   return max;
                 }, 'low' as string);
 
+                const markerColor = getImportanceColor(highestImportance);
+                const glowFilter = highestImportance === 'high' ? 'url(#glow-high)' : 
+                                   highestImportance === 'medium' ? 'url(#glow-medium)' : 
+                                   'none';
+
                 return (
                   <Marker key={country} coordinates={coordinates}>
                     <g
                       onClick={() => setSelectedEvents(countryEvents)}
                       style={{ cursor: "pointer" }}
+                      filter={glowFilter}
                     >
+                      {/* Outer glow circles */}
+                      {highestImportance === 'high' && (
+                        <>
+                          <circle
+                            r={20}
+                            fill={markerColor}
+                            opacity={0.15}
+                          />
+                          <circle
+                            r={14}
+                            fill={markerColor}
+                            opacity={0.25}
+                          />
+                        </>
+                      )}
+                      {highestImportance === 'medium' && (
+                        <circle
+                          r={14}
+                          fill={markerColor}
+                          opacity={0.2}
+                        />
+                      )}
+                      
+                      {/* Main marker */}
                       <circle
                         r={8}
-                        fill={getImportanceColor(highestImportance)}
+                        fill={markerColor}
                         stroke="#FFF"
                         strokeWidth={2}
-                        className="animate-pulse"
                       />
                       <circle
                         r={4}
                         fill="#FFF"
                       />
+                      
+                      {/* Event count */}
                       <text
                         textAnchor="middle"
                         y={-12}
@@ -345,6 +451,7 @@ export default function Home() {
                           fill: "#000",
                           fontSize: "12px",
                           fontWeight: "bold",
+                          filter: "none"
                         }}
                       >
                         {countryEvents.length}
@@ -356,13 +463,19 @@ export default function Home() {
             </ZoomableGroup>
           </ComposableMap>
         </div>
-      ) : (
+      ) : viewMode === 'list' ? (
         /* List View */
         <div className="w-full h-full overflow-auto pt-20 px-4 pb-4">
           <div className="max-w-7xl mx-auto">
             <NewsList selectedDate={selectedDate} />
           </div>
         </div>
+      ) : viewMode === 'indices' ? (
+        /* Indices View */
+        <IndicesView />
+      ) : (
+        /* News View */
+        <NewsView />
       )}
     </div>
   );

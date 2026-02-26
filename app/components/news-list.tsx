@@ -116,7 +116,14 @@ export default function NewsList({ selectedDate }: NewsListProps) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">
-                    <div className="font-medium">{event.event_translated || event.short_name}</div>
+                    <a
+                      href={`https://www.investing.com${event.page_link}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium hover:text-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                    >
+                      {event.event_translated || event.short_name}
+                    </a>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-1">
                       {event.description}
                     </div>
