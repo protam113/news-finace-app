@@ -1,65 +1,369 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { ComposableMap, Geographies, Geography, ZoomableGroup, Marker } from "react-simple-maps";
+import { EconomicEvent, countryCoordinates } from "./types/economic-event";
+import countryData from "./data/country.json";
+import NewsList from "./components/news-list";
+import FilterPanel from "./components/filter-panel";
+
+const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+// Tạo mapping từ country.json
+const countryIdToCode: Record<number, string> = {};
+const countryIdToName: Record<number, string> = {};
+
+countryData.forEach((country) => {
+  // Map country_id sang currency code (vì API trả về currency)
+  countryIdToCode[country.country_id] = country.currency.substring(0, 2); // USD -> US, CAD -> CA, etc
+  countryIdToName[country.country_id] = country.country;
+});
+
+// Override một số mapping đặc biệt
+const currencyToCountryCode: Record<string, string> = {
+  'USD': 'US',
+  'CAD': 'CA',
+  'MXN': 'MX',
+  'EUR': 'EU', // Eurozone
+  'CHF': 'CH',
+  'ILS': 'IL',
+  'AUD': 'AU',
+  'JPY': 'JP',
+  'SGD': 'SG',
+  'CNY': 'CN',
+  'NZD': 'NZ',
+  'TWD': 'TW',
+  'SAR': 'SA',
+  'ZAR': 'ZA',
+};
 
 export default function Home() {
+  const [position, setPosition] = useState({ coordinates: [0, 0], zoom: 1 });
+  const [tooltip, setTooltip] = useState("");
+  const [selectedEvents, setSelectedEvents] = useState<EconomicEvent[] | null>(null);
+  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(
+    countryData.map(c => c.country_id.toString())
+  );
+  const [selectedImportance, setSelectedImportance] = useState<string[]>(['low', 'medium', 'high']);
+
+  useEffect(() => {
+    // Chỉ fetch khi có ít nhất 1 country và 1 importance được chọn
+    if (selectedCountries.length > 0 && selectedImportance.length > 0) {
+      fetchEvents(selectedDate);
+    } else {
+      setEvents([]);
+      setLoading(false);
+    }
+  }, [selectedDate, selectedCountries, selectedImportance]);
+
+  const fetchEvents = async (date: string) => {
+    setLoading(true);
+    try {
+      const countries = selectedCountries.join(',');
+      const importance = selectedImportance.join(',');
+      const response = await fetch(`/api/economic-events?date=${date}&countries=${countries}&importance=${importance}`);
+      const data = await response.json();
+      setEvents(data.events || []);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleZoomIn = () => {
+    if (position.zoom >= 4) return;
+    setPosition((pos) => ({ ...pos, zoom: pos.zoom * 1.5 }));
+  };
+
+  const handleZoomOut = () => {
+    if (position.zoom <= 1) return;
+    setPosition((pos) => ({ ...pos, zoom: pos.zoom / 1.5 }));
+  };
+
+  const handleReset = () => {
+    setPosition({ coordinates: [0, 0], zoom: 1 });
+  };
+
+  // Nhóm sự kiện theo quốc gia (dùng currency để map)
+  const eventsByCountry = events.reduce((acc: Record<string, EconomicEvent[]>, event) => {
+    const countryCode = currencyToCountryCode[event.currency];
+    
+    // Debug: log các currency không có trong mapping
+    if (!countryCode) {
+      console.log('Unknown currency:', event.currency, 'Country ID:', event.country_id);
+      return acc;
+    }
+    
+    if (!acc[countryCode]) {
+      acc[countryCode] = [];
+    }
+    acc[countryCode].push(event);
+    return acc;
+  }, {});
+
+  const getImportanceColor = (importance: string) => {
+    switch (importance) {
+      case 'high': return '#EF4444'; // red
+      case 'medium': return '#F59E0B'; // orange
+      case 'low': return '#10B981'; // green
+      default: return '#6B7280'; // gray
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="relative w-screen h-screen bg-zinc-50 dark:bg-black overflow-hidden">
+      {/* Date Picker */}
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
+        <div className="bg-white dark:bg-zinc-800 px-4 py-2 rounded-lg shadow-lg">
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-transparent text-black dark:text-white font-medium outline-none"
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`px-4 py-2 rounded-lg shadow-lg font-medium transition-colors ${
+            showFilters
+              ? 'bg-blue-500 text-white'
+              : 'bg-white dark:bg-zinc-800 text-black dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700'
+          }`}
+        >
+           Filters
+        </button>
+      </div>
+
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className="absolute top-20 left-4 z-10 w-80">
+          <FilterPanel
+            selectedCountries={selectedCountries}
+            selectedImportance={selectedImportance}
+            onCountriesChange={setSelectedCountries}
+            onImportanceChange={setSelectedImportance}
+          />
         </div>
-      </main>
+      )}
+
+      {/* View Mode Toggle */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-white dark:bg-zinc-800 rounded-lg shadow-lg p-1 flex gap-1">
+        <button
+          onClick={() => setViewMode('map')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'map'
+              ? 'bg-blue-500 text-white'
+              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+          }`}
+        >
+           Maps
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'bg-blue-500 text-white'
+              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+          }`}
+        >
+           List
+        </button>
+      </div>
+
+      {/* Zoom Controls - Only show in map mode */}
+      {viewMode === 'map' && (
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+          <button
+            onClick={handleZoomIn}
+            className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-lg shadow-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-xl font-bold text-black dark:text-white"
+          >
+            +
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-lg shadow-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-xl font-bold text-black dark:text-white"
+          >
+            −
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-lg shadow-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center justify-center text-xs font-bold text-black dark:text-white"
+          >
+            ⟲
+          </button>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="absolute top-20 left-4 z-10 bg-white dark:bg-zinc-800 px-4 py-2 rounded-lg shadow-lg text-black dark:text-white">
+          Loading data...
+        </div>
+      )}
+
+      {/* Country Tooltip - Only in map mode */}
+      {viewMode === 'map' && tooltip && !selectedEvents && (
+        <div className="absolute top-20 left-4 z-10 bg-white dark:bg-zinc-800 px-4 py-2 rounded-lg shadow-lg text-black dark:text-white font-medium">
+          {tooltip}
+        </div>
+      )}
+
+      {/* Events Sidebar - Only in map mode */}
+      {viewMode === 'map' && selectedEvents && (
+        <div className="absolute top-0 right-0 h-full w-96 bg-white dark:bg-zinc-800 shadow-2xl z-40 overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+                {selectedEvents.length} economic events
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedEvents(null)}
+              className="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 text-xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {selectedEvents.map((event) => (
+              <div key={event.event_id} className="border-b border-zinc-200 dark:border-zinc-700 pb-3 last:border-0">
+                <div className="flex items-start gap-2 mb-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                    event.importance === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                    event.importance === 'medium' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' :
+                    'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                  }`}>
+                    {event.importance}
+                  </span>
+                  <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {event.currency}
+                  </span>
+                </div>
+                <h3 className="font-bold text-black dark:text-white mb-2 text-sm">
+                  {event.event_translated || event.short_name}
+                </h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-2">
+                  {event.description}
+                </p>
+                <div className="text-xs text-zinc-500 dark:text-zinc-500">
+                  {event.source}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Content Area */}
+      {viewMode === 'map' ? (
+        /* Map View */
+        <div className="w-full h-full">
+          <ComposableMap
+            projection="geoMercator"
+            projectionConfig={{
+              scale: 147,
+            }}
+            width={800}
+            height={600}
+            style={{ width: "100%", height: "100%" }}
+          >
+            <ZoomableGroup
+              zoom={position.zoom}
+              center={position.coordinates as [number, number]}
+              onMoveEnd={(position) => setPosition(position)}
+            >
+              <Geographies geography={geoUrl}>
+                {({ geographies }: any) =>
+                  geographies.map((geo: any) => (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      fill="#D6D6DA"
+                      stroke="#FFF"
+                      strokeWidth={0.5}
+                      onMouseEnter={() => {
+                        setTooltip(geo.properties.name);
+                      }}
+                      onMouseLeave={() => {
+                        setTooltip("");
+                      }}
+                      style={{
+                        default: { fill: "#D6D6DA", outline: "none" },
+                        hover: { fill: "#F53", outline: "none", cursor: "pointer" },
+                        pressed: { fill: "#E42", outline: "none" },
+                      }}
+                    />
+                  ))
+                }
+              </Geographies>
+
+              {/* Event Markers */}
+              {Object.entries(eventsByCountry).map(([country, countryEvents]) => {
+                const coordinates = countryCoordinates[country];
+                if (!coordinates) {
+                  console.log('No coordinates for country:', country);
+                  return null;
+                }
+
+                // Lấy importance cao nhất để quyết định màu
+                const highestImportance = countryEvents.reduce((max, event) => {
+                  if (event.importance === 'high') return 'high';
+                  if (event.importance === 'medium' && max !== 'high') return 'medium';
+                  return max;
+                }, 'low' as string);
+
+                return (
+                  <Marker key={country} coordinates={coordinates}>
+                    <g
+                      onClick={() => setSelectedEvents(countryEvents)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <circle
+                        r={8}
+                        fill={getImportanceColor(highestImportance)}
+                        stroke="#FFF"
+                        strokeWidth={2}
+                        className="animate-pulse"
+                      />
+                      <circle
+                        r={4}
+                        fill="#FFF"
+                      />
+                      <text
+                        textAnchor="middle"
+                        y={-12}
+                        style={{
+                          fontFamily: "system-ui",
+                          fill: "#000",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {countryEvents.length}
+                      </text>
+                    </g>
+                  </Marker>
+                );
+              })}
+            </ZoomableGroup>
+          </ComposableMap>
+        </div>
+      ) : (
+        /* List View */
+        <div className="w-full h-full overflow-auto pt-20 px-4 pb-4">
+          <div className="max-w-7xl mx-auto">
+            <NewsList selectedDate={selectedDate} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

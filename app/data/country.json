@@ -1,0 +1,18 @@
+[
+  { "id": 1, "country_id": 5, "country": "United States", "currency": "USD" },
+  { "id": 2, "country_id": 6, "country": "Canada", "currency": "CAD" },
+  { "id": 3, "country_id": 7, "country": "Mexico", "currency": "MXN" },
+  { "id": 4, "country_id": 10, "country": "Italy", "currency": "EUR" },
+  { "id": 5, "country_id": 12, "country": "Switzerland", "currency": "CHF" },
+  { "id": 6, "country_id": 17, "country": "Germany", "currency": "EUR" },
+  { "id": 7, "country_id": 23, "country": "Israel", "currency": "ILS" },
+  { "id": 8, "country_id": 25, "country": "Australia", "currency": "AUD" },
+  { "id": 9, "country_id": 35, "country": "Japan", "currency": "JPY" },
+  { "id": 10, "country_id": 36, "country": "Singapore", "currency": "SGD" },
+  { "id": 11, "country_id": 37, "country": "China", "currency": "CNY" },
+  { "id": 12, "country_id": 43, "country": "New Zealand", "currency": "NZD" },
+  { "id": 13, "country_id": 46, "country": "Taiwan", "currency": "TWD" },
+  { "id": 14, "country_id": 52, "country": "Saudi Arabia", "currency": "SAR" },
+  { "id": 15, "country_id": 72, "country": "Eurozone", "currency": "EUR" },
+  { "id": 16, "country_id": 110, "country": "South Africa", "currency": "ZAR" }
+]
