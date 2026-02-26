@@ -1,37 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Economic Events Calendar
+
+A modern web application for tracking global economic events with interactive map and list views.
+
+## Features
+
+- 🗺️ **Interactive World Map** - Visualize economic events by country with color-coded importance levels
+- 📋 **List View** - Detailed table view with filtering and sorting capabilities
+- 🔍 **Advanced Filters** - Filter by country, date, and impact level
+- 🌓 **Dark Mode** - Full dark mode support
+- 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
+- ⚡ **Real-time Data** - Fetches latest economic events from Investing.com API
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Maps**: react-simple-maps
+- **Data Source**: Investing.com Economic Calendar API
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+# or
+yarn install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+├── api/
+│   └── economic-events/    # API route for fetching events
+├── components/
+│   ├── filter-panel.tsx    # Filter UI component
+│   └── news-list.tsx       # List view component
+├── data/
+│   └── country.json        # Country mapping data
+├── types/
+│   └── economic-event.ts   # TypeScript types
+└── page.tsx                # Main page with map view
+```
 
-## Learn More
+## Features in Detail
 
-To learn more about Next.js, take a look at the following resources:
+### Map View
+- Interactive world map showing economic events by country
+- Color-coded markers based on event importance (High: Red, Medium: Orange, Low: Green)
+- Click on markers to view detailed event information
+- Zoom and pan controls
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### List View
+- Sortable table with all economic events
+- Currency tags with color coding
+- Impact level indicators with star ratings
+- Expandable event descriptions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Filters
+- **Date Picker**: Select any date to view events
+- **Country Filter**: Select specific countries or regions
+- **Impact Level**: Filter by High, Medium, or Low importance
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+MIT License - see the [LICENSE](LICENSE) file for details.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# news-finace-app
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Acknowledgments
+
+- Economic data provided by [Investing.com](https://www.investing.com)
+- Map visualization powered by [react-simple-maps](https://www.react-simple-maps.io/)
+- Built with [Next.js](https://nextjs.org)
